@@ -1,0 +1,16 @@
+/* Top‑notch card – a light shadow and rounded corners (already used) */
+.top-notch-card {
+    border-radius: .75rem;
+    background-color: #fff;
+}
+
+/* Make the heading icons a little larger and vertically aligned */
+h2 .bi, h2 svg {
+    vertical-align: middle;
+    margin-right: .4rem;
+}
+
+/* Subtle hover for the preview button */
+.btn-outline-info:hover {
+    background-color: rgba(13, 202, 240, .1);
+}

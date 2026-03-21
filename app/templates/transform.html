@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Fluxion – Transform Data</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet" integrity="sha384-..." crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-light">
+
+<div class="container py-5 d-flex justify-content-center">
+    <section class="card top-notch-card shadow-sm w-75">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">🔧 Choose Transformations</h2>
+        </div>
+
+        <div class="card-body">
+            <p class="lead text-muted mb-4">
+                Tick the operations you want to apply to the uploaded CSV.
+                You can preview the result before moving on.
+            </p>
+
+            <form id="transformForm">
+                <!-- ==== Transformation check‑boxes ==== -->
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox"
+                           id="tDupRows" name="transformations"
+                           value="drop_duplicate_rows">
+                    <label class="form-check-label" for="tDupRows">
+                        Drop duplicate Rows
+                    </label>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox"
+                           id="tDupCols" name="transformations"
+                           value="drop_duplicate_columns">
+                    <label class="form-check-label" for="tDupCols">
+                        Drop duplicate Columns
+                    </label>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox"
+                           id="tFillNull" name="transformations"
+                           value="fill_nulls_zero">
+                    <label class="form-check-label" for="tFillNull">
+                        Fill Null with 0
+                    </label>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox"
+                           id="tDropNullRows" name="transformations"
+                           value="drop_rows_with_nulls">
+                    <label class="form-check-label" for="tDropNullRows">
+                        Drop rows that contain NULL
+                    </label>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox"
+                           id="tRenameCol" name="transformations"
+                           value="rename_column">
+                    <label class="form-check-label" for="tRenameCol">
+                        Rename a Column
+                    </label>
+                </div>
+
+                <!-- Rename inputs – hidden until the rename checkbox is ticked -->
+                <div class="mt-3 d-none" id="renameInputs">
+                    <label class="form-label" for="oldName">Old column name</label>
+                    <input class="form-control mb-2" type="text" id="oldName"
+                           name="old_name" placeholder="e.g. name">
+                    <label class="form-label" for="newName">New column name</label>
+                    <input class="form-control" type="text" id="newName"
+                           name="new_name" placeholder="e.g. full_name">
+                </div>
+
+                <!-- ==== Navigation bar – Back | Preview (center) | Next ==== -->
+                <div class="d-flex justify-content-between align-items-center mt-4">
+
+                    <!-- Back button (left) -->
+                    <a href="{{ url_for('client.upload') }}"
+                       class="btn btn-outline-secondary btn-lg">
+                        ← Back
+                    </a>
+
+                    <!-- Preview button – **must be type="button"** so it does NOT submit the form -->
+                    <button type="button"
+                            class="btn btn-outline-info btn-lg"
+                            id="previewBtn">
+                        👁️ Show Preview
+                    </button>
+
+                    <!-- Next button (right) – submits the form -->
+                    <button type="submit"
+                            class="btn btn-primary btn-lg">
+                         Download
+                    </button>
+                </div>
+
+                <!-- ==== Preview box (appears under the button bar) ==== -->
+                <div class="mt-4 d-none" id="previewSection">
+                    <h5 class="mb-2">Preview (first 5 rows)</h5>
+                    <pre id="previewBox"
+                         class="bg-white p-3 border rounded"
+                         style="height:250px; overflow:auto;">Loading…</pre>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+
+<script>
+    // -------------------------------------------------
+    // Show / hide rename inputs when the rename checkbox changes
+    // -------------------------------------------------
+    document.getElementById('tRenameCol').addEventListener('change', function () {
+        document.getElementById('renameInputs').classList.toggle('d-none', !this.checked);
+    });
+
+    // -------------------------------------------------
+    // Form submission – collect transformations and navigate to download
+    // -------------------------------------------------
+    document.getElementById('transformForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Gather transformation identifiers
+        const selected = Array.from(
+            document.querySelectorAll('input[name="transformations"]:checked')
+        ).map(cb => cb.value);
+
+        // Validate rename fields if selected
+        if (selected.includes('rename_column')) {
+            const oldName = document.getElementById('oldName').value.trim();
+            const newName = document.getElementById('newName').value.trim();
+            if (!oldName || !newName) {
+                alert('Please fill both old and new column names for rename.');
+                return;
+            }
+        }
+
+        // Submit the form to store transformations in session
+        const formData = new FormData(document.getElementById('transformForm'));
+        try {
+            const resp = await fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            });
+            if (resp.ok) {
+                // Navigate to download page
+                window.location.href = '{{ url_for("client.download_csv") }}';
+            } else {
+                alert('Error saving transformations');
+            }
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    });
+
+    // -------------------------------------------------
+    // Preview button – fetch preview without leaving the page
+    // -------------------------------------------------
+    document.getElementById('previewBtn').addEventListener('click', async (e) => {
+        // **Prevent the form from being submitted**
+        e.preventDefault();
+
+        // Gather selected transformation identifiers
+        const selected = Array.from(
+            document.querySelectorAll('input[name="transformations"]:checked')
+        ).map(cb => cb.value);
+
+        // If rename is selected, also collect its extra fields
+        let rename = null;
+        if (selected.includes('rename_column')) {
+            const oldName = document.getElementById('oldName').value.trim();
+            const newName = document.getElementById('newName').value.trim();
+            if (!oldName || !newName) {
+                alert('Please fill both old and new column names for rename.');
+                return;
+            }
+            rename = { old_name: oldName, new_name: newName };
+        }
+
+        const payload = { transformations: selected };
+        if (rename) payload.rename = rename;
+
+        try {
+            const resp = await fetch("{{ url_for('client.preview_transform') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            // If the server returned HTML (e.g. a redirect), show it for debugging
+            const text = await resp.text();
+
+            // Try to parse JSON – if it fails we know we got HTML
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (parseErr) {
+                throw new Error("Server returned HTML instead of JSON:\n" + text);
+            }
+
+            if (!resp.ok) throw new Error(data.error || "preview failed");
+
+            // Show the preview box and fill it
+            const previewSec = document.getElementById('previewSection');
+            previewSec.classList.remove('d-none');
+            document.getElementById('previewBox').textContent = data.preview;
+        } catch (err) {
+            alert("Error while generating preview: " + err.message);
+        }
+    });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-..." crossorigin="anonymous"></script>
+</body>
+</html>
