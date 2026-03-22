@@ -64,7 +64,7 @@ def upload() -> Any:
 # -----------------------------------------------------------------
 # 5️⃣ Step 2 – choose transformations (GET shows form, POST stores)
 # -----------------------------------------------------------------
-@client_bp.route("/transform", methods=["GET", "POST"])
+@client_bp.route("/transform_pre", methods=["GET", "POST"])
 def transform() -> Any:
     """Show the transformation checklist (GET) or store the selection (POST)."""
     if "uploaded_file" not in session:
@@ -160,4 +160,3 @@ def download_csv() -> Any:
         )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
-
